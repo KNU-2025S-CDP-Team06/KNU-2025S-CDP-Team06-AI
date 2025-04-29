@@ -28,9 +28,6 @@ def predict(store_id):
         "xgboost_forecast": 0
     }), 200
 
-if __name__ == '__main__':
-    app.run(debug=True, port=5001)
-
 
 #=========================
 # 주/월 학습 및 예측 API
