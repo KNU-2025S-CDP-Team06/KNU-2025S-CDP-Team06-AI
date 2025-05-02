@@ -1,4 +1,4 @@
-from fastapi import FastAPI, UploadFile, File, Query
+from fastapi import FastAPI, UploadFile, File, Request
 from fastapi.responses import JSONResponse
 from typing import Optional
 import pandas as pd
@@ -34,19 +34,28 @@ async def train_xgboost(
     return JSONResponse(content={"message": "XGBoost 학습 데이터 수신 완료"}, status_code=200)
 
 
-@app.get("/predict/{store_id}")
-async def predict(store_id: int, date: Optional[str] = Query(None)):
-    print(f"[예측 요청] 매장 ID: {store_id}, 날짜: {date}")
+@app.post("/predict")
+async def predict(request: Request):
+    data = await request.json()
+    store_id = data.get("store_id")
+    date = data.get("date")
+    weather = data.get("weather", {})
+
     return {
         "prophet_forecast": 0,
         "xgboost_forecast": 0
     }
 
 
-@app.get("/predict/weekly/{store_id}")
-async def predict_weekly(store_id: int, date: Optional[str] = Query(None)):
+@app.post("/predict/weekly")
+async def predict_weekly(request: Request):
+    data = await request.json()
+    store_id = data.get("store_id")
+    date = data.get("date")
+    weather = data.get("weather", {})
+
     if not date:
-        return JSONResponse(content={"error": "Bad Request: date query parameter is required"}, status_code=400)
+        return JSONResponse(content={"error": "Bad Request: date is required"}, status_code=400)
 
     return {
         "date": date,
@@ -54,10 +63,15 @@ async def predict_weekly(store_id: int, date: Optional[str] = Query(None)):
     }
 
 
-@app.get("/predict/monthly/{store_id}")
-async def predict_monthly(store_id: int, date: Optional[str] = Query(None)):
+@app.post("/predict/monthly")
+async def predict_monthly(request: Request):
+    data = await request.json()
+    store_id = data.get("store_id")
+    date = data.get("date")
+    weather = data.get("weather", {})
+
     if not date:
-        return JSONResponse(content={"error": "Bad Request: date query parameter is required"}, status_code=400)
+        return JSONResponse(content={"error": "Bad Request: date is required"}, status_code=400)
 
     return {
         "date": date,
