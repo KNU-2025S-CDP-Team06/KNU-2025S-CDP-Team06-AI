@@ -1,68 +1,65 @@
-from flask import Flask, request, jsonify
-from datetime import datetime
+from fastapi import FastAPI, UploadFile, File, Query
+from fastapi.responses import JSONResponse
+from typing import Optional
+import pandas as pd
 
-app = Flask(__name__)
-
-
-@app.route('/train/prophet', methods=['POST'])
-def train_prophet():
-    data = request.get_json()
-    print("📌 [Prophet 학습] 받은 데이터:", data.get("revenue_data"))
-    return '', 200
-
-
-@app.route('/train/xgboost', methods=['POST'])
-def train_xgboost():
-    data = request.get_json()
-    print("📌 [XGBoost 학습] 매출 데이터:", data.get("revenue_data"))
-    print("📌 [XGBoost 학습] 날씨 데이터:", data.get("weather_data"))
-    return '', 200
+app = FastAPI(
+    title="매출 예측 시스템",
+    description="Prophet/XGBoost 학습 및 예측 API",
+    version="1.0.0"
+)
 
 
-@app.route('/predict/<int:store_id>', methods=['GET'])
-def predict(store_id):
-    date = request.args.get('date')
-    print(f"📌 [예측 요청] 매장 ID: {store_id}, 날짜: {date}")
-    return jsonify({
+@app.post("/train/prophet")
+async def train_prophet(revenue_file: UploadFile = File(...)):
+    if revenue_file.content_type != "text/csv":
+        return JSONResponse(content={"error": "Only CSV"}, status_code=400)
+    
+    df = pd.read_csv(revenue_file.file)
+
+    return JSONResponse(content={"message": "Prophet 학습 데이터 수신 완료"}, status_code=200)
+
+
+@app.post("/train/xgboost")
+async def train_xgboost(
+    revenue_file: UploadFile = File(...),
+    weather_file: UploadFile = File(...)
+):
+    if revenue_file.content_type != "text/csv" or weather_file.content_type != "text/csv":
+        return JSONResponse(content={"error": "Only CSV"}, status_code=400)
+
+    pd.read_csv(revenue_file.file)
+    pd.read_csv(weather_file.file)
+
+    return JSONResponse(content={"message": "XGBoost 학습 데이터 수신 완료"}, status_code=200)
+
+
+@app.get("/predict/{store_id}")
+async def predict(store_id: int, date: Optional[str] = Query(None)):
+    print(f"[예측 요청] 매장 ID: {store_id}, 날짜: {date}")
+    return {
         "prophet_forecast": 0,
         "xgboost_forecast": 0
-    }), 200
+    }
 
 
-#=========================
-# 주/월 학습 및 예측 API
-#=========================
-
-# 2-1. 주간 예측 (특정 날짜 1개)
-@app.route('/predict/weekly/<int:store_id>', methods=['GET'])
-def predict_weekly(store_id):
-    date = request.args.get('date')
+@app.get("/predict/weekly/{store_id}")
+async def predict_weekly(store_id: int, date: Optional[str] = Query(None)):
     if not date:
-        return "Bad Request: date query parameter is required", 400
+        return JSONResponse(content={"error": "Bad Request: date query parameter is required"}, status_code=400)
 
-    print(f"📌 [주간 예측 요청] 매장 ID: {store_id}, 날짜: {date}")
-    # 실제 Prophet 예측 로직은 추후 연결
-    return jsonify({
+    return {
         "date": date,
-        "prophet_forecast": 0  # Dummy 예측값
-    }), 200
+        "prophet_forecast": 0
+    }
 
-# 2-2. 월간 예측 (특정 날짜 1개)
-@app.route('/predict/monthly/<int:store_id>', methods=['GET'])
-def predict_monthly(store_id):
-    date = request.args.get('date')
+
+@app.get("/predict/monthly/{store_id}")
+async def predict_monthly(store_id: int, date: Optional[str] = Query(None)):
     if not date:
-        return "Bad Request: date query parameter is required", 400
+        return JSONResponse(content={"error": "Bad Request: date query parameter is required"}, status_code=400)
 
-    print(f"📌 [월간 예측 요청] 매장 ID: {store_id}, 날짜: {date}")
-    # 실제 Prophet 예측 로직은 추후 연결
-    return jsonify({
+    return {
         "date": date,
-        "prophet_forecast": 0  # Dummy 예측값
-    }), 200
-
-# ========================
-# 서버 실행
-# ========================
-if __name__ == '__main__':
-    app.run(debug=True, port=5001)
+        "prophet_forecast": 0
+    }
