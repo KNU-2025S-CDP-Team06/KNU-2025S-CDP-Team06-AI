@@ -16,6 +16,21 @@ async def train_prophet(revenue_file: UploadFile = File(...)):
     
     df = pd.read_csv(revenue_file.file)
 
+    for store_id, store_df in df.groupby("store_id"):
+        store_cluster_id = store_df["cluster_id"].iloc[0]
+        store_df = store_df[["date", "revenue"]]  
+
+        if store_cluster_id == 0:
+            run_prophet_office(store_df, store_id)
+        elif store_cluster_id == 1:
+            run_prophet_station(store_df, store_id)
+        elif store_cluster_id == 2:
+            run_prophet_house(store_df, store_id)
+        elif store_cluster_id == 3:
+            run_prophet_downtown(store_df, store_id)
+        elif store_cluster_id == 4:
+            run_prophet_univ(store_df, store_id)
+
     return JSONResponse(content={"message": "Prophet 학습 데이터 수신 완료"}, status_code=200)
 
 
