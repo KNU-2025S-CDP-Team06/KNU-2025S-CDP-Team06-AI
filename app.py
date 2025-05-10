@@ -1,11 +1,14 @@
 from fastapi import FastAPI, UploadFile, File, Request
 from fastapi.responses import JSONResponse
 import pandas as pd
-from xgb_utils import (
-    compute_yhat_and_target,
-    generate_features,
-    train_xgboost  
-)
+from train.xgb_utils.compute_yhat_and_target import compute_yhat_and_target
+from train.xgb_utils.generate_features import generate_features
+from train.xgb_utils.train_xgboost import train_xgboost
+from train.prophet_utils.run_prophet_downtown import run_prophet_downtown
+from train.prophet_utils.run_prophet_house import run_prophet_house
+from train.prophet_utils.run_prophet_office import run_prophet_office
+from train.prophet_utils.run_prophet_station import run_prophet_station
+from train.prophet_utils.run_prophet_univ import run_prophet_univ
 
 app = FastAPI(
     title="매출 예측 시스템",
