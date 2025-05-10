@@ -1,6 +1,12 @@
 from fastapi import FastAPI, UploadFile, File, Request
 from fastapi.responses import JSONResponse
 import pandas as pd
+from xgb_utils import (
+    load_and_validate_csv,
+    compute_yhat_and_target,
+    generate_features,
+    train_and_save_xgboost
+)
 
 app = FastAPI(
     title="매출 예측 시스템",
@@ -34,19 +40,29 @@ async def train_prophet(revenue_file: UploadFile = File(...)):
     return JSONResponse(content={"message": "Prophet 학습 데이터 수신 완료"}, status_code=200)
 
 
+
 @app.post("/train/xgboost")
-async def train_xgboost(
-    revenue_file: UploadFile = File(...),
-    weather_file: UploadFile = File(...)
-):
-    if revenue_file.content_type != "text/csv" or weather_file.content_type != "text/csv":
+async def train_xgboost(train_file: UploadFile = File(...)):
+    if train_file.content_type != "text/csv":
         return JSONResponse(content={"error": "Only CSV"}, status_code=400)
 
-    pd.read_csv(revenue_file.file)
-    pd.read_csv(weather_file.file)
+    try:
+        # 2. CSV 로딩
+        df = load_and_validate_csv(train_file)
 
-    return JSONResponse(content={"message": "XGBoost 학습 데이터 수신 완료"}, status_code=200)
+        # 3. Prophet 예측을 기반으로 yhat 및 y 생성
+        df_with_target = compute_yhat_and_target(df)
 
+        # 4. 입력 피처 생성
+        df_features = generate_features(df_with_target)
+
+        # 5. XGBoost 학습 및 모델 저장
+        train_and_save_xgboost(df_features)
+
+        return JSONResponse(content={"message": "XGBoost 학습 완료 및 저장"}, status_code=200)
+
+    except Exception as e:
+        return JSONResponse(content={"error": f"학습 중 오류 발생: {str(e)}"}, status_code=500)
 
 @app.post("/predict")
 async def predict(request: Request):
