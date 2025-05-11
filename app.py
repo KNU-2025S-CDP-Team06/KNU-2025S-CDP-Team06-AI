@@ -16,6 +16,13 @@ app = FastAPI(
     version="1.0.0"
 )
 
+@app.post("/train/cluster")
+async def train_clustering(revenue_file: UploadFile = File(...)):
+    if revenue_file.content_type != "text/csv":
+        return JSONResponse(content={"error": "Only CSV"}, status_code=400)
+    
+    df = pd.read_csv(revenue_file.file)
+    return JSONResponse(content={"message": "Prophet 학습 데이터 수신 완료"}, status_code=200)
 
 @app.post("/train/prophet")
 async def train_prophet(revenue_file: UploadFile = File(...)):
