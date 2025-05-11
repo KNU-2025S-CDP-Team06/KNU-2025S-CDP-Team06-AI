@@ -8,7 +8,7 @@ from prophet.make_holidays import make_holidays_df
 from sklearn.metrics import mean_absolute_error
 from datetime import timedelta
 
-def run_prophet_station(store_df: pd.DataFrame, store_id: int, save_dir: str = "./models/prophet/"):
+def run_prophet_downtown(store_df: pd.DataFrame, store_id: int, save_dir: str = "./models/prophet/"):
     store_id_str = str(store_id)
 
     # preprocessing
