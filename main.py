@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from routers.train import train_router
-from routers.predict import predict_router
+from routers.forecast import forecast_router
 
 app = FastAPI(
     title="매출 예측 시스템",
@@ -9,4 +9,4 @@ app = FastAPI(
 )
 
 app.include_router(train_router)
-app.include_router(predict_router)
+app.include_router(forecast_router)
