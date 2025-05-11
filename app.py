@@ -22,7 +22,7 @@ async def train_clustering(train_file: UploadFile = File(...)):
         return JSONResponse(content={"error": "Only CSV"}, status_code=400)
     
     df = pd.read_csv(train_file.file)
-    return JSONResponse(content={"message": "Prophet 학습 데이터 수신 완료"}, status_code=200)
+    return JSONResponse(content={"message": "Cluster 학습 데이터 수신 완료"}, status_code=200)
 
 @app.post("/train/prophet")
 async def train_prophet(train_file: UploadFile = File(...)):
