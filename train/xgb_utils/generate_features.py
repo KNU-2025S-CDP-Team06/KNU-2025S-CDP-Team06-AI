@@ -1,4 +1,5 @@
 import pandas as pd
+
 def generate_features(df: pd.DataFrame) -> pd.DataFrame:
     """
     store_id별로 정렬된 시계열 데이터에 대해 lag, weekly_lag, dayofweek, is_weekend 피처를 생성
