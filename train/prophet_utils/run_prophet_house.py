@@ -6,6 +6,7 @@ from prophet.make_holidays import make_holidays_df
 from sklearn.metrics import mean_absolute_error
 from datetime import timedelta
 import pandas as pd 
+import numpy as np
 
 def run_prophet_house(store_df: pd.DataFrame, store_id: int, save_dir: str = "./models/prophet/"):
 
