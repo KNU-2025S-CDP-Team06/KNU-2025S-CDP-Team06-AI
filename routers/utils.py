@@ -15,10 +15,10 @@ def get_prophet_function(cluster_id: int):
 
     return {
         0: run_prophet_office,
-        1: run_prophet_station,
-        2: run_prophet_house,
+        1: run_prophet_house,
+        2: run_prophet_univ,
         3: run_prophet_downtown,
-        4: run_prophet_univ
+        4: run_prophet_station
     }.get(cluster_id)
 
 async def parse_forecast_request(request: Request):
