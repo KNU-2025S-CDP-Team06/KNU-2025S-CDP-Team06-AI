@@ -39,14 +39,8 @@ def compute_yhat_and_target(df: pd.DataFrame) -> pd.DataFrame:
         with open(model_path, "rb") as f:
             model: Prophet = pickle.load(f)
 
-        # 이상치 제거 (revenue == 0 또는 월 평균 ±40%)
         store_df["month"] = store_df["date"].dt.to_period("M")
-        monthly_avg = store_df.groupby("month")["revenue"].transform("mean")
-        lower = monthly_avg * 0.6
-        upper = monthly_avg * 1.4
-        cleaned_df = store_df[(store_df["revenue"] != 0) &
-                              (store_df["revenue"] >= lower) &
-                              (store_df["revenue"] <= upper)].copy()
+        cleaned_df = store_df[store_df["revenue"] != 0].copy()
         cleaned_df.drop(columns=["month"], inplace=True)
 
         # Prophet 예측을 위한 컬럼 설정
@@ -55,7 +49,7 @@ def compute_yhat_and_target(df: pd.DataFrame) -> pd.DataFrame:
         cleaned_df["floor"] = 0
 
         # 대학가 상권일 경우, is_semester, is_vacation 값 계산
-        if store_cluster_id == 4:
+        if store_cluster_id == 2:
             cleaned_df["is_semester"] = cleaned_df["ds"].apply(lambda d: 1 if is_in_semester(d) else 0)
             cleaned_df["is_vacation"] = cleaned_df["is_semester"].apply(lambda x: 0 if x == 1 else 1)
 
