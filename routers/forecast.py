@@ -12,6 +12,11 @@ forecast_router = APIRouter(prefix="/forecast", tags=["Forecast"])
 async def forecast(forecast_file: UploadFile = File(...)):
     try:
         df = read_csv_upload_file(forecast_file)
+        df = df.rename(columns={
+            "precipitation": "rain",
+            "feeling": "temp"
+        })
+
         forecast_result = {} # 세부 예측 로직 추가
 
         for _, row in df.iterrows():
