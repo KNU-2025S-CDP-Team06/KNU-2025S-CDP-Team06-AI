@@ -35,6 +35,11 @@ def train_xgboost(df: pd.DataFrame, save_path: str = "./models/xgb/xgb_model.pkl
     le = LabelEncoder()
     df["weather_encoded"] = le.fit_transform(df["weather"])
 
+    #Label Encoder 저장
+    os.makedirs("./models/xgb", exist_ok=True)
+    with open("./models/xgb/label_encoder.pkl", "wb") as f:
+        pickle.dump(le, f)
+    
     # feature 및 target 설정
     feature_cols = [
         "temp", "rain", "weather_encoded",
