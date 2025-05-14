@@ -20,20 +20,24 @@ def predict_daily(data: dict) -> dict:
     with open(prophet_model_path, "rb") as f:
         model: Prophet = pickle.load(f)
 
-    # 대학가(cluster_id == 2)일 경우 피처 추가
     future = pd.DataFrame({"ds": [date]})
     if cluster_id == 2:
-        future["semester"] = int(
-            any(
-                pd.to_datetime(start) <= date <= pd.to_datetime(end)
-                for start, end in [
-                    ("2023-03-01", "2023-06-23"), ("2023-09-01", "2023-12-22"),
-                    ("2024-03-04", "2024-06-20"), ("2024-09-02", "2024-12-20"),
-                    ("2025-03-04", "2025-06-20"), ("2025-09-01", "2025-12-20")
-                ]
-            )
+        semester_ranges = [
+            ("2023-03-01", "2023-06-23"), ("2023-09-01", "2023-12-22"),
+            ("2024-03-04", "2024-06-20"), ("2024-09-02", "2024-12-20"),
+            ("2025-03-04", "2025-06-20"), ("2025-09-01", "2025-12-20")
+        ]
+
+        in_semester = any(
+            pd.to_datetime(start) <= date <= pd.to_datetime(end)
+            for start, end in semester_ranges
         )
 
+        future["is_semester"] = int(in_semester)
+        future["is_vacation"] = int(not in_semester)
+
+    future["cap"] = model.history["cap"].max() if "cap" in model.history else 1_000_0000
+    future["floor"] = 0
     forecast = model.predict(future)
     y_prophet = float(forecast.iloc[0]["yhat"])
 
@@ -61,7 +65,11 @@ def predict_daily(data: dict) -> dict:
         normalized_weather = "Fog"
 
     weather_encoded = int(le.transform([normalized_weather])[0])
-
+    feature_order = [
+        "temp", "rain", "weather_encoded",
+        "lag", "weekly_lag", "dayofweek",
+        "cluster_id", "is_weekend"
+    ]
     x_row = pd.DataFrame([{
         "temp": data["temp"],
         "rain": data["rain"],
@@ -71,7 +79,7 @@ def predict_daily(data: dict) -> dict:
         "dayofweek": dayofweek,
         "is_weekend": is_weekend,
         "cluster_id": cluster_id,
-    }])
+    }])[feature_order]
 
     # XGBoost 모델 Load 및 예측
     xgb_model_path = f"./models/xgb/xgb_model.pkl"
