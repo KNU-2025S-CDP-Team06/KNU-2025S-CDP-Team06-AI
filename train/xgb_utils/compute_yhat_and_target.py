@@ -77,4 +77,5 @@ def compute_yhat_and_target(df: pd.DataFrame) -> pd.DataFrame:
 
     # 모든 store 데이터 통합
     final_df = pd.concat(store_dfs, ignore_index=True)
+    final_df = final_df.dropna(subset=["yhat", "y"]).reset_index(drop=True)
     return final_df
