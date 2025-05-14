@@ -75,7 +75,7 @@ def run_prophet_downtown(store_df: pd.DataFrame, store_id: int, save_dir: str = 
 
     # Optuna 튜닝
     study = optuna.create_study(direction="minimize")
-    study.optimize(objective, n_trials=30)
+    study.optimize(objective, n_trials=10)
     best_params = study.best_params
 
     # model train
