@@ -107,7 +107,7 @@ def run_prophet_univ(store_df: pd.DataFrame, store_id: int, save_dir: str = "./m
         return np.mean(mae_scores)
 
     study = optuna.create_study(direction="minimize")
-    study.optimize(objective, n_trials=10)
+    study.optimize(objective, n_trials=5)
     best_params = study.best_params
 
     #model train
