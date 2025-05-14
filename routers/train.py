@@ -18,7 +18,7 @@ async def train_clustering(train_file: UploadFile = File(...)):
         cluster_result = run_kmeans_clustering(df)
         print(cluster_result)
         for store_id in cluster_result:
-            url = f"{config.BACKEND_URL}/train/{store_id}"
+            url = f"{config.BACKEND_URL}/store/{store_id}"
             data = {
                 "cluster": int(cluster_result[store_id])  # 예시 클러스터 값
             }
