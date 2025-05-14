@@ -40,8 +40,8 @@ async def forecast(forecast_file: UploadFile = File(...)):
         for store_id, (y_prophet, y_xgboost) in forecast_result.items():
             url = f"http://localhost:3006/forecast/{store_id}"  # 실제 서버 주소로 수정
             data = {
-                "prophet_forecast": y_prophet,
-                "xgboost_forecast": y_xgboost
+                    "prophet_forecast": float(y_prophet),
+                    "xgboost_forecast": float(y_xgboost)
             }
             response = requests.post(url, json=data)
 
