@@ -5,6 +5,7 @@ from .utils import parse_forecast_request
 from .utils import read_csv_upload_file
 from forecast.predict_daily import predict_daily
 import requests
+from config import config
 
 forecast_router = APIRouter(prefix="/forecast", tags=["Forecast"])
 
@@ -38,7 +39,7 @@ async def forecast(forecast_file: UploadFile = File(...)):
             forecast_result.update(prediction)
 
         for store_id, (y_prophet, y_xgboost) in forecast_result.items():
-            url = f"http://localhost:3006/forecast/{store_id}"  # 실제 서버 주소로 수정
+            url = f"{config.BACKEND_URL}/forecast/{store_id}"
             data = {
                     "prophet_forecast": float(y_prophet),
                     "xgboost_forecast": float(y_xgboost)

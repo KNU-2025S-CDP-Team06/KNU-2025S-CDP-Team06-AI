@@ -7,6 +7,7 @@ from train.xgb_utils.generate_features import generate_features
 from train.xgb_utils.train_xgboost import train_xgboost
 from train.run_kmeans_clustering import run_kmeans_clustering
 import requests
+from config import config
 
 train_router = APIRouter(prefix="/train", tags=["Training"])
 
@@ -17,7 +18,7 @@ async def train_clustering(train_file: UploadFile = File(...)):
         cluster_result = run_kmeans_clustering(df)
         print(cluster_result)
         for store_id in cluster_result:
-            url = f"http://localhost:3006/store/{store_id}"  # 실제 서버 주소로 수정
+            url = f"{config.BACKEND_URL}/train/{store_id}"
             data = {
                 "cluster": int(cluster_result[store_id])  # 예시 클러스터 값
             }
