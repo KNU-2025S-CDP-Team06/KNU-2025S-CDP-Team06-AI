@@ -73,7 +73,7 @@ def run_prophet_house(store_df: pd.DataFrame, store_id: int, save_dir: str = "./
         return np.mean(mae_scores) if mae_scores else np.inf
 
     study = optuna.create_study(direction="minimize")
-    study.optimize(objective, n_trials= 5)
+    study.optimize(objective, n_trials= 20)
     best_params = study.best_params
 
     # model train
