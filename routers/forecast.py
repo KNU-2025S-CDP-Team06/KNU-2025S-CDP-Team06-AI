@@ -1,8 +1,7 @@
 from fastapi import APIRouter, Request
 from fastapi import APIRouter, UploadFile, File
 from fastapi.responses import JSONResponse
-from .utils import parse_forecast_request
-from .utils import read_csv_upload_file
+from .utils import parse_forecast_request, read_csv_upload_file, get_jwt
 from forecast.predict_daily import predict_daily
 import requests
 from config import config
@@ -38,15 +37,24 @@ async def forecast(forecast_file: UploadFile = File(...)):
             prediction = predict_daily(input_dict)
             forecast_result.update(prediction)
 
+        # JWT 인증
+        headers = {
+            "Authorization": f"Bearer {get_jwt()}"
+        }
         for store_id, (y_prophet, y_xgboost) in forecast_result.items():
-            url = f"{config.BACKEND_URL}/forecast/{store_id}"
+            url = f"{config.BACKEND_URL}/forecast"
             data = {
-                    "prophet_forecast": float(y_prophet),
-                    "xgboost_forecast": float(y_xgboost)
+                "store_id": store_id,
+                "prophet_forecast": float(y_prophet),
+                "xgboost_forecast": float(y_xgboost)
             }
-            response = requests.post(url, json=data)
+            response = requests.post(url, json=data, headers=headers)
 
+            if response.status_code != 204:
+                raise ValueError(f"{store_id} 저장 실패: {response.status_code} - {response.text}")
+            
         return JSONResponse(content={"message": "예측 데이터 수신 완료"}, status_code=200)
+    
     except ValueError as ve:
         return JSONResponse(content={"error": str(ve)}, status_code=400)
 

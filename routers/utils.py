@@ -1,5 +1,7 @@
 import pandas as pd
 from fastapi import UploadFile, Request
+import requests
+from config import config
 
 def read_csv_upload_file(upload_file: UploadFile):
     if upload_file.content_type != "text/csv":
@@ -28,3 +30,17 @@ async def parse_forecast_request(request: Request):
         "date": data.get("date"),
         "weather": data.get("weather", {})
     }
+
+def get_jwt():
+    login_url = f"{config.BACKEND_URL}/admin/login"
+    login_data = {
+        "mb_id": config.ADMIN_ID,
+        "password": config.ADMIN_PASSWORD
+    }
+
+    login_response = requests.post(login_url, json=login_data)
+
+    if login_response.status_code == 200:
+        return login_response.json()["token"] # jwt 반환
+    else:
+        raise Exception("로그인 실패: 관리자 인증 실패")
