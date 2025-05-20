@@ -15,14 +15,19 @@ def train_xgboost(df: pd.DataFrame, save_path: str = "./models/xgb/xgb_model.pkl
     # 날짜 정렬
     df = df.sort_values("date").reset_index(drop=True)
     df["month"] = df["date"].dt.to_period("M")
-    
+
+    # 이상치 제거 전 샘플 수
+    n_before_outlier_removal = len(df)
+
     # 이상치 제거: 매출이 월 평균 대비 ±50% 이상인 경우 제거
-    
     monthly_avg = df.groupby("month")["y"].transform("mean")
     lower = monthly_avg * 0.5
     upper = monthly_avg * 1.5
     df = df[(df["y"] >= lower) & (df["y"] <= upper)].copy()
-    df.reset_index(drop=True, inplace=True)  
+    df.reset_index(drop=True, inplace=True)
+
+    # 이상치 제거 후 샘플 수
+    n_after_outlier_removal = len(df)
 
     # weather category 통합
     df["weather"] = df["weather"].replace({
@@ -35,11 +40,11 @@ def train_xgboost(df: pd.DataFrame, save_path: str = "./models/xgb/xgb_model.pkl
     le = LabelEncoder()
     df["weather_encoded"] = le.fit_transform(df["weather"])
 
-    #Label Encoder 저장
+    # Label Encoder 저장
     os.makedirs("./models/xgb", exist_ok=True)
     with open("./models/xgb/label_encoder.pkl", "wb") as f:
         pickle.dump(le, f)
-    
+
     # feature 및 target 설정
     feature_cols = [
         "temp", "rain", "weather_encoded",
@@ -94,11 +99,37 @@ def train_xgboost(df: pd.DataFrame, save_path: str = "./models/xgb/xgb_model.pkl
     study.optimize(objective, n_trials=100)
     best_params = study.best_params
 
-    # 최적 파라미터로 모델 재학습
-    final_model = XGBRegressor(**best_params, random_state=42, n_jobs=-1)
-    final_model.fit(X, y)
+    # 최적 파라미터로 Fold별 성능 측정 및 모델 학습
+    mae_list = []
+    for i, (train_idx, test_idx) in enumerate(folds):
+        X_train, X_test = X.iloc[train_idx], X.iloc[test_idx]
+        y_train, y_test = y.iloc[train_idx], y.iloc[test_idx]
+
+        if len(y_test) == 0 or len(y_train) == 0:
+            continue
+
+        model = XGBRegressor(**best_params, random_state=42, n_jobs=-1)
+        model.fit(X_train, y_train)
+        y_pred = model.predict(X_test)
+        mae = mean_absolute_error(y_test, y_pred)
+        mae_list.append(mae)
+
+    # 로그 저장 (이상치 정보 + MAE + 하이퍼파라미터)
+    log_path = "./models/xgb/xgb_log.txt"
+    with open(log_path, "w") as f:
+        f.write("=== XGBoost 학습 로그 ===\n")
+        f.write(f"이상치 제거 전 샘플 수: {n_before_outlier_removal}\n")
+        f.write(f"이상치 제거 후 샘플 수: {n_after_outlier_removal}\n\n")
+
+        for i, mae in enumerate(mae_list):
+            f.write(f"Fold {i + 1}: MAE = {mae:.4f}\n")
+        f.write(f"\nAverage MAE: {np.mean(mae_list):.4f}\n")
+
+        f.write("\nBest Hyperparameters:\n")
+        for k, v in best_params.items():
+            f.write(f"{k}: {v}\n")
 
     # 모델 저장
     os.makedirs(os.path.dirname(save_path), exist_ok=True)
     with open(save_path, "wb") as f:
-        pickle.dump(final_model, f)
+        pickle.dump(model, f)

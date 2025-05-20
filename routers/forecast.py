@@ -86,11 +86,13 @@ async def forecast_weekly(forecast_file: UploadFile = File(...)):
                 "store_id": store_id,
                 "prophet_forecast": float(weekly_forecast)
             }
+            print(data)
+
             response = requests.post(url, json=data, headers=headers)
 
             if response.status_code != 204:
                 raise ValueError(f"{store_id} 저장 실패: {response.status_code} - {response.text}")
-            
+
         return JSONResponse(content={"message": "예측 데이터 수신 완료"}, status_code=200)
     
     except ValueError as ve:
@@ -113,6 +115,7 @@ async def forecast_monthly(forecast_file: UploadFile = File(...)):
             prediction = predict_period(input_dict, periods = 30) # 30일 간의 매출을 예측
             forecast_result.update(prediction)
 
+
         # JWT 인증
         headers = {
             "Authorization": f"Bearer {get_jwt()}"
@@ -123,11 +126,12 @@ async def forecast_monthly(forecast_file: UploadFile = File(...)):
                 "store_id": store_id,
                 "prophet_forecast": float(monthly_forecast)
             }
-            response = requests.post(url, json=data, headers=headers)
 
+            response = requests.post(url, json=data, headers=headers)
+            
             if response.status_code != 204:
                 raise ValueError(f"{store_id} 저장 실패: {response.status_code} - {response.text}")
-            
+
         return JSONResponse(content={"message": "예측 데이터 수신 완료"}, status_code=200)
     
     except ValueError as ve:
