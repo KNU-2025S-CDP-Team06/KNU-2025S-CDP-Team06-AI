@@ -6,6 +6,7 @@ import pickle
 from xgboost import XGBRegressor
 from sklearn.metrics import mean_absolute_error
 from sklearn.preprocessing import LabelEncoder
+import sys
 
 def train_xgboost(df: pd.DataFrame, save_path: str = "./models/xgb/xgb_model.pkl"):
     """
@@ -18,17 +19,28 @@ def train_xgboost(df: pd.DataFrame, save_path: str = "./models/xgb/xgb_model.pkl
 
     # 이상치 제거 전 샘플 수
     n_before_outlier_removal = len(df)
+    df.to_csv("./models/xgb/before_outlier_removal.csv", index=False)
 
+    """
     # 이상치 제거: 매출이 월 평균 대비 ±50% 이상인 경우 제거
     monthly_avg = df.groupby("month")["y"].transform("mean")
     lower = monthly_avg * 0.5
     upper = monthly_avg * 1.5
     df = df[(df["y"] >= lower) & (df["y"] <= upper)].copy()
     df.reset_index(drop=True, inplace=True)
+    """
+    
+    # Prophet 예측 신뢰구간 기반 이상치 제거
+    if "yhat_lower" in df.columns and "yhat_upper" in df.columns:
+        df = df[(df["revenue"] >= df["yhat_lower"]*0.6) & (df["revenue"] <= df["yhat_upper"]*1.4)].copy()
+        df.reset_index(drop=True, inplace=True)
 
     # 이상치 제거 후 샘플 수
     n_after_outlier_removal = len(df)
+    df.to_csv("./models/xgb/after_outlier_removal.csv", index=False)
 
+    print("n_before_outlier_removal: ", n_before_outlier_removal, "n_after_outlier_removal: ", n_after_outlier_removal)
+    sys.stdout.flush()
     # weather category 통합
     df["weather"] = df["weather"].replace({
         "Haze": "Fog",
@@ -96,7 +108,7 @@ def train_xgboost(df: pd.DataFrame, save_path: str = "./models/xgb/xgb_model.pkl
         return np.mean(fold_maes) if fold_maes else float("inf")
 
     study = optuna.create_study(direction="minimize")
-    study.optimize(objective, n_trials=100)
+    study.optimize(objective, n_trials=80)
     best_params = study.best_params
 
     # 최적 파라미터로 Fold별 성능 측정 및 모델 학습
