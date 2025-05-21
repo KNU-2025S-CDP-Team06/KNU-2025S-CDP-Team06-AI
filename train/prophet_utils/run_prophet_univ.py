@@ -37,8 +37,8 @@ def run_prophet_univ(store_df: pd.DataFrame, store_id: int, save_dir: str = "./m
     df["ds"] = pd.to_datetime(df["ds"])
 
     #set cap & floor
-    df["cap"] = df["y"].max() * 1.5
-    df["floor"] = 0
+    df["cap"] = df["y"].max() * 1.1  
+    df["floor"] = df["y"].min() * 0.9 if df["y"].min() > 0 else 0
     df["is_vacation"] = df["ds"].apply(is_vacation)
     df["is_semester"] = df["is_vacation"].apply(lambda x: 0 if x == 1 else 1)
 

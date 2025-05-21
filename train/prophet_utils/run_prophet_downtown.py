@@ -16,8 +16,8 @@ def run_prophet_downtown(store_df: pd.DataFrame, store_id: int, save_dir: str = 
     df = df[df["revenue"] != 0]
     df = df.rename(columns={"date": "ds", "revenue": "y"})
     df["ds"] = pd.to_datetime(df["ds"])
-    df["cap"] = df["y"].max() * 1.5
-    df["floor"] = 0
+    df["cap"] = df["y"].max() * 1.1 
+    df["floor"] = df["y"].min() * 0.9 if df["y"].min() > 0 else 0
 
     # holiday 설정: 평일에 해당하는 공휴일만 포함
     years = df["ds"].dt.year.unique().tolist()
