@@ -130,3 +130,25 @@ def run_prophet_univ(store_df: pd.DataFrame, store_id: int, save_dir: str = "./m
     os.makedirs(save_dir, exist_ok=True)
     with open(os.path.join(save_dir, f"{store_id_str}.pkl"), "wb") as f:
         pickle.dump(final_model, f)
+    
+    # 최근 1년 제외한 데이터로 학습한 평가용 모델 저장 (_test.pkl)
+    cutoff_date = df["ds"].max() - pd.DateOffset(months=12)
+    test_df = df[df["ds"] < cutoff_date].copy()
+    if len(test_df) >= 180:  # 최소 데이터 확보 조건 (6개월 이상)
+        test_model = Prophet(
+            growth='logistic',
+            yearly_seasonality=True,
+            weekly_seasonality=True,
+            daily_seasonality=False,
+            seasonality_mode='additive',
+            changepoint_prior_scale=best_params["changepoint_prior_scale"],
+            seasonality_prior_scale=best_params["seasonality_prior_scale"],
+            holidays_prior_scale=best_params["holidays_prior_scale"],
+            holidays=semester_holidays
+        )
+        test_model.add_seasonality("semester_weekly", period=7, fourier_order=3, condition_name="is_semester")
+        test_model.add_seasonality("vacation_weekly", period=7, fourier_order=3, condition_name="is_vacation")
+        test_model.fit(test_df)
+        with open(os.path.join(save_dir, f"{store_id_str}_test.pkl"), "wb") as f:
+            pickle.dump(test_model, f)
+

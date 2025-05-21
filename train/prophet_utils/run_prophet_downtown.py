@@ -97,3 +97,21 @@ def run_prophet_downtown(store_df: pd.DataFrame, store_id: int, save_dir: str = 
     with open(os.path.join(save_dir, f"{store_id_str}.pkl"), "wb") as f:
         pickle.dump(final_model, f)
 
+    # 최근 1년 제외한 데이터로 학습한 평가용 모델 저장 (_test.pkl)
+    cutoff_date = df["ds"].max() - pd.DateOffset(months=12)
+    test_df = df[df["ds"] < cutoff_date].copy()
+    if len(test_df) >= 180:  # 최소 데이터 확보 조건 (6개월 이상)
+        test_model = Prophet(
+            growth='logistic',
+            yearly_seasonality=True,
+            weekly_seasonality=True,
+            daily_seasonality=False,
+            seasonality_mode='additive',
+            changepoint_prior_scale=best_params["changepoint_prior_scale"],
+            seasonality_prior_scale=best_params["seasonality_prior_scale"],
+            holidays_prior_scale=best_params["holidays_prior_scale"],
+            holidays=office_holidays
+        )
+        test_model.fit(test_df)
+        with open(os.path.join(save_dir, f"{store_id_str}_test.pkl"), "wb") as f:
+            pickle.dump(test_model, f)
