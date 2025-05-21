@@ -90,4 +90,4 @@ def predict_daily(data: dict) -> dict:
 
     y_xgboost = xgb_model.predict(x_row)[0]
 
-    return {store_id: [y_prophet, y_xgboost]}
+    return {store_id: [y_prophet, y_xgboost, date]}

@@ -5,6 +5,7 @@ from .utils import parse_forecast_request, read_csv_upload_file, get_jwt
 from forecast.predict_daily import predict_daily
 import requests
 from config import config
+from datetime import datetime
 
 forecast_router = APIRouter(prefix="/forecast", tags=["Forecast"])
 
@@ -41,12 +42,14 @@ async def forecast(forecast_file: UploadFile = File(...)):
         headers = {
             "Authorization": f"Bearer {get_jwt()}"
         }
-        for store_id, (y_prophet, y_xgboost) in forecast_result.items():
+        for store_id, (y_prophet, y_xgboost, date) in forecast_result.items():
             url = f"{config.BACKEND_URL}/forecast"
+
             data = {
                 "store_id": store_id,
                 "prophet_forecast": float(y_prophet),
-                "xgboost_forecast": float(y_xgboost)
+                "xgboost_forecast": float(y_xgboost),
+                "dateTime" : datetime.combine(date, datetime.min.time()).strftime("%Y-%m-%dT%H:%M:%S")
             }
             response = requests.post(url, json=data, headers=headers)
 
