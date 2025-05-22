@@ -10,14 +10,10 @@ from datetime import datetime
 
 forecast_router = APIRouter(prefix="/forecast", tags=["Forecast"])
 
-@forecast_router.post("/daily")
+@forecast_router.post
 async def forecast_daily(forecast_file: UploadFile = File(...)):
     try:
         df = read_csv_upload_file(forecast_file)
-        df = df.rename(columns={
-            "precipitation": "rain",
-            "feeling": "temp"
-        })
 
         forecast_result = {} # 세부 예측 로직 추가
 
@@ -43,14 +39,15 @@ async def forecast_daily(forecast_file: UploadFile = File(...)):
         headers = {
             "Authorization": f"Bearer {get_jwt()}"
         }
+        
         for store_id, (y_prophet, y_xgboost, date) in forecast_result.items():
             url = f"{config.BACKEND_URL}/forecast"
 
             data = {
                 "store_id": store_id,
                 "prophet_forecast": float(y_prophet),
-                "xgboost_forecast": float(y_xgboost),
-                "dateTime" : datetime.combine(date, datetime.min.time()).strftime("%Y-%m-%dT%H:%M:%S")
+                "xgboost_forecast": float(y_xgboost), # 얘는 null 일 수 있음
+                "date_time" : datetime.combine(date, datetime.min.time()).strftime("%Y-%m-%dT%H:%M:%S")
             }
             response = requests.post(url, json=data, headers=headers)
 
