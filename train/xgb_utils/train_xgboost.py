@@ -20,19 +20,10 @@ def train_xgboost(df: pd.DataFrame, save_path: str = "./models/xgb/xgb_model.pkl
     # 이상치 제거 전 샘플 수
     n_before_outlier_removal = len(df)
     df.to_csv("./models/xgb/before_outlier_removal.csv", index=False)
-
-    """
-    # 이상치 제거: 매출이 월 평균 대비 ±50% 이상인 경우 제거
-    monthly_avg = df.groupby("month")["y"].transform("mean")
-    lower = monthly_avg * 0.5
-    upper = monthly_avg * 1.5
-    df = df[(df["y"] >= lower) & (df["y"] <= upper)].copy()
-    df.reset_index(drop=True, inplace=True)
-    """
     
     # Prophet 예측 신뢰구간 기반 이상치 제거
     if "yhat_lower" in df.columns and "yhat_upper" in df.columns:
-        df = df[(df["revenue"] >= df["yhat_lower"]*0.6) & (df["revenue"] <= df["yhat_upper"]*1.4)].copy()
+        df = df[(df["revenue"] >= df["yhat_lower"]) & (df["revenue"] <= df["yhat_upper"])].copy()
         df.reset_index(drop=True, inplace=True)
 
     # 이상치 제거 후 샘플 수
@@ -65,16 +56,15 @@ def train_xgboost(df: pd.DataFrame, save_path: str = "./models/xgb/xgb_model.pkl
     ]
     X = df[feature_cols]
     y = df["y"]
-    dates = df["date"]
 
     # Expanding window folds 정의 (최근 4개월을 대상으로 Test 진행)
     recent_months = sorted(df["month"].unique())[-4:]
     folds = []
-    for i in range(len(recent_months)):
-        train_end = recent_months[i]
-        test_end = recent_months[i]
-        train_idx = df.index[df["month"] <= train_end]
-        test_idx = df.index[df["month"] == test_end]
+    for i in range(0,len(recent_months)):
+        test_month = recent_months[i]
+        train_months = recent_months[:i]  # test 월 이전까지
+        train_idx = df.index[df["month"].isin(train_months)]
+        test_idx = df.index[df["month"] == test_month]
         folds.append((train_idx, test_idx))
     df.drop(columns=["month"], inplace=True)
 
@@ -108,7 +98,7 @@ def train_xgboost(df: pd.DataFrame, save_path: str = "./models/xgb/xgb_model.pkl
         return np.mean(fold_maes) if fold_maes else float("inf")
 
     study = optuna.create_study(direction="minimize")
-    study.optimize(objective, n_trials=80)
+    study.optimize(objective, n_trials= 80)
     best_params = study.best_params
 
     # 최적 파라미터로 Fold별 성능 측정 및 모델 학습
@@ -125,7 +115,7 @@ def train_xgboost(df: pd.DataFrame, save_path: str = "./models/xgb/xgb_model.pkl
         y_pred = model.predict(X_test)
         mae = mean_absolute_error(y_test, y_pred)
         mae_list.append(mae)
-
+    
     # 로그 저장 (이상치 정보 + MAE + 하이퍼파라미터)
     log_path = "./models/xgb/xgb_log.txt"
     with open(log_path, "w") as f:
@@ -136,6 +126,7 @@ def train_xgboost(df: pd.DataFrame, save_path: str = "./models/xgb/xgb_model.pkl
         for i, mae in enumerate(mae_list):
             f.write(f"Fold {i + 1}: MAE = {mae:.4f}\n")
         f.write(f"\nAverage MAE: {np.mean(mae_list):.4f}\n")
+        f.write(f"\nMedian MAE: {np.median(mae_list):.4f}\n")
 
         f.write("\nBest Hyperparameters:\n")
         for k, v in best_params.items():
