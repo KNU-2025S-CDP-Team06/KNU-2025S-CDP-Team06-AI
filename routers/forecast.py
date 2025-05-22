@@ -10,7 +10,7 @@ from datetime import datetime
 
 forecast_router = APIRouter(prefix="/forecast", tags=["Forecast"])
 
-@forecast_router.post
+@forecast_router.post("/")
 async def forecast_daily(forecast_file: UploadFile = File(...)):
     try:
         df = read_csv_upload_file(forecast_file)
