@@ -3,7 +3,7 @@ import numpy as np
 import os
 import pickle
 from prophet import Prophet
-
+from pandas.tseries.offsets import MonthEnd
 # 학기 기간 정의
 semester_ranges = [
     ("2023-03-01", "2023-06-23"), ("2023-09-01", "2023-12-22"),
@@ -32,53 +32,91 @@ def compute_yhat_and_target(df: pd.DataFrame) -> pd.DataFrame:
         # Prophet 모델 경로 확인
         model_path = f"./models/prophet/{store_id}.pkl"
         if not os.path.exists(model_path):
-            print(f"[{store_id}] Prophet 모델이 존재하지 않음: {model_path}")
+            print(f"[{store_id}] Prophet test 모델이 존재하지 않음: {model_path}")
             continue
 
         # Prophet 모델 로딩
         with open(model_path, "rb") as f:
-            model: Prophet = pickle.load(f)
+            base_model: Prophet = pickle.load(f)
 
-        store_df["month"] = store_df["date"].dt.to_period("M")
-        cleaned_df = store_df[store_df["revenue"] != 0].copy()
-        cleaned_df.drop(columns=["month"], inplace=True)
-        cleaned_df["ds"] = cleaned_df["date"]
-        y_max = cleaned_df["revenue"].max()
-        y_min = cleaned_df["revenue"].min()
-        cleaned_df["cap"] = y_max * 1.1
-        cleaned_df["floor"] = y_min * 0.9 if y_min > 0 else 0
+        # 최근 1년 예측 대상 범위
+        latest_date = store_df["date"].max()
+        cutoff_date = latest_date - pd.DateOffset(months=12)
+        store_df = store_df[store_df["revenue"] != 0].copy()
+        store_df = store_df[store_df["date"] >= cutoff_date - pd.DateOffset(months=12)]  # 2년치 확보
+        store_df["ds"] = store_df["date"]
 
-        # 대학가 상권일 경우, is_semester, is_vacation 값 계산
-        if store_cluster_id == 2:
-            cleaned_df["is_semester"] = cleaned_df["ds"].apply(lambda d: 1 if is_in_semester(d) else 0)
-            cleaned_df["is_vacation"] = cleaned_df["is_semester"].apply(lambda x: 0 if x == 1 else 1)
+        results = []
+        months = sorted(store_df["ds"].dt.to_period("M").unique())
+        for i in range(12):
+            if i + 12 >= len(months):
+                break
+            train_end = months[i + 11].to_timestamp(how="end")
+            test_month = months[i + 12]
+            test_start = test_month.to_timestamp()
+            test_end = test_month.to_timestamp() + MonthEnd(1)
 
-        # 예측 수행
-        input_cols = ["ds", "cap", "floor"]
-        if "is_semester" in cleaned_df.columns:
-            input_cols.append("is_semester")
-        if "is_vacation" in cleaned_df.columns:
-            input_cols.append("is_vacation")
+            train_df = store_df[store_df["ds"] <= train_end].copy()
+            test_df = store_df[(store_df["ds"] >= test_start) & (store_df["ds"] <= test_end)].copy()
+            if len(test_df) == 0:
+                continue
 
-        try:
-            forecast = model.predict(cleaned_df[input_cols])
-        except Exception as e:
-            print(f"[{store_id}] 예측 실패: {e}")
-            continue
+            # cap/floor
+            y_max = train_df["revenue"].max()
+            y_min = train_df["revenue"].min()
+            train_df["y"] = train_df["revenue"]
+            train_df["cap"] = y_max * 1.1
+            train_df["floor"] = y_min * 0.9 if y_min > 0 else 0
 
-        yhat_df = forecast[["ds", "yhat", "yhat_lower", "yhat_upper"]].rename(columns={
-            "ds": "date"
-        })
+            test_df["cap"] = train_df["cap"].iloc[0]
+            test_df["floor"] = train_df["floor"].iloc[0]
 
-        merged = pd.merge(cleaned_df, yhat_df, on="date", how="left")
+            train_df["ds"] = train_df["date"]
+            test_df["ds"] = test_df["date"]
 
-        # 타겟 계산 및 신뢰구간 추가 
-        merged["y"] = (merged["revenue"] - merged["yhat"]) / merged["yhat"]
-        merged["store_id"] = store_id
+            # 조건부 seasonality
+            if store_cluster_id == 2:
+                for d in [train_df, test_df]:
+                    d["is_semester"] = d["ds"].apply(lambda d: 1 if is_in_semester(d) else 0)
+                    d["is_vacation"] = 1 - d["is_semester"]
 
-        store_dfs.append(merged)
+            # 모델 생성 및 학습
+            model = Prophet(
+                growth=base_model.growth,
+                yearly_seasonality=base_model.yearly_seasonality,
+                weekly_seasonality=base_model.weekly_seasonality,
+                daily_seasonality=base_model.daily_seasonality,
+                seasonality_mode=base_model.seasonality_mode,
+                changepoint_prior_scale=base_model.changepoint_prior_scale,
+                seasonality_prior_scale=base_model.seasonality_prior_scale,
+                holidays_prior_scale=base_model.holidays_prior_scale,
+                holidays=base_model.holidays
+            )
+            if store_cluster_id == 2:
+                model.add_seasonality("semester_weekly", period=7, fourier_order=3, condition_name="is_semester")
+                model.add_seasonality("vacation_weekly", period=7, fourier_order=3, condition_name="is_vacation")
 
-    # 모든 store 데이터 통합
+            try:
+                model.fit(train_df)
+                input_cols = ["ds", "cap", "floor"]
+                if "is_semester" in test_df.columns:
+                    input_cols += ["is_semester", "is_vacation"]
+
+                forecast = model.predict(test_df[input_cols])
+                forecast = forecast[["ds", "yhat", "yhat_lower", "yhat_upper"]].rename(columns={"ds": "date"})
+                merged = pd.merge(test_df, forecast, on="date", how="left")
+                merged["y"] = (merged["revenue"] - merged["yhat"]) / merged["yhat"]
+                merged["store_id"] = store_id
+                results.append(merged)
+            except Exception as e:
+                print(f"[{store_id}] 예측 실패: {e}")
+                continue
+
+        if results:
+            store_dfs.append(pd.concat(results, ignore_index=True))
+
     final_df = pd.concat(store_dfs, ignore_index=True)
     final_df = final_df.dropna(subset=["yhat", "y"]).reset_index(drop=True)
+    # test용
+    final_df.to_csv("yhat.csv", index=False)
     return final_df
