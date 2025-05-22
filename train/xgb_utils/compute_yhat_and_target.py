@@ -42,11 +42,11 @@ def compute_yhat_and_target(df: pd.DataFrame) -> pd.DataFrame:
         store_df["month"] = store_df["date"].dt.to_period("M")
         cleaned_df = store_df[store_df["revenue"] != 0].copy()
         cleaned_df.drop(columns=["month"], inplace=True)
-
-        # Prophet 예측을 위한 컬럼 설정
         cleaned_df["ds"] = cleaned_df["date"]
-        cleaned_df["cap"] = cleaned_df["revenue"].max() * 1.5
-        cleaned_df["floor"] = 0
+        y_max = cleaned_df["revenue"].max()
+        y_min = cleaned_df["revenue"].min()
+        cleaned_df["cap"] = y_max * 1.1
+        cleaned_df["floor"] = y_min * 0.9 if y_min > 0 else 0
 
         # 대학가 상권일 경우, is_semester, is_vacation 값 계산
         if store_cluster_id == 2:
@@ -66,10 +66,13 @@ def compute_yhat_and_target(df: pd.DataFrame) -> pd.DataFrame:
             print(f"[{store_id}] 예측 실패: {e}")
             continue
 
-        yhat_df = forecast[["ds", "yhat"]].rename(columns={"ds": "date"})
-        merged = pd.merge(store_df, yhat_df, on="date", how="left") 
+        yhat_df = forecast[["ds", "yhat", "yhat_lower", "yhat_upper"]].rename(columns={
+            "ds": "date"
+        })
 
-        # 타겟 계산
+        merged = pd.merge(cleaned_df, yhat_df, on="date", how="left")
+
+        # 타겟 계산 및 신뢰구간 추가 
         merged["y"] = (merged["revenue"] - merged["yhat"]) / merged["yhat"]
         merged["store_id"] = store_id
 
