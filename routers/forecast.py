@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Request
-from fastapi import APIRouter, UploadFile, File
+from fastapi import APIRouter, UploadFile, File, Path
 from fastapi.responses import JSONResponse
 from .utils import parse_forecast_request, read_csv_upload_file, get_jwt
 from forecast.predict_daily import predict_daily
@@ -10,6 +10,74 @@ from datetime import datetime
 
 forecast_router = APIRouter(prefix="/forecast", tags=["Forecast"])
 
+@forecast_router.post("/{period}")
+async def forecast(
+    period: str = Path(..., regex="^(daily|weekly|monthly)$"),
+    forecast_file: UploadFile = File(...)
+):
+    try:
+        df = read_csv_upload_file(forecast_file)
+
+        df = df.rename(columns={
+            "precipitation": "rain",
+            "feeling": "temp"
+        })
+
+        forecast_result = {}
+
+        if period == "daily":
+            # daily 처리 로직
+            pass
+
+        elif period == "weekly":
+            # daily + weekly 처리 로직
+            pass
+
+        elif period == "monthly":
+            # daily + weekly+ monthly 처리 로직
+            pass
+
+        # JWT 인증
+        headers = {
+            "Authorization": f"Bearer {get_jwt()}"
+        }
+        for store_id, (y_prophet, y_xgboost, date) in forecast_result.items():
+            url = f"{config.BACKEND_URL}/forecast"
+
+            # 여기서 그냥 한 번에 합쳐서 보내면 됨
+            '''
+            data = {
+	            "store_id": store_id,
+                "prophet_forecast": int(y_prophet),
+                "xgboost_forecast": float(y_xgboost),
+                "dateTime" : datetime.combine(date, datetime.min.time()).strftime("%Y-%m-%dT%H:%M:%S”), // 날짜 데이터 형변환
+                “weeky_forecast” : int(y_prophet), // 없으면 null 가능
+                “monthly_forecast” : int(y_prophet), // 없으면 null 가능
+            }
+            '''
+            
+            # predcit_daily 함수 보면 날짜 반환할 수 있게 바꿔놨으니까 그거 참고하면 됨
+            data = {
+                "store_id": store_id,
+                "prophet_forecast": float(y_prophet),
+                "xgboost_forecast": float(y_xgboost),
+                "dateTime": datetime.combine(date, datetime.min.time()).strftime("%Y-%m-%dT%H:%M:%S")
+            }
+            response = requests.post(url, json=data, headers=headers)
+
+            if response.status_code != 204:
+                raise ValueError(f"{store_id} 저장 실패: {response.status_code} - {response.text}")
+
+        return JSONResponse(content={"message": f"{period} 예측 데이터 수신 완료"}, status_code=200)
+
+    except ValueError as ve:
+        return JSONResponse(content={"error": str(ve)}, status_code=400)
+
+
+'''
+여기서부터는 원래 있던 코드
+참고해서 위에꺼 작성하고 다 하면 밑에건 다 지우면 됨
+'''
 @forecast_router.post("/daily")
 async def forecast_daily(forecast_file: UploadFile = File(...)):
     try:
@@ -48,7 +116,7 @@ async def forecast_daily(forecast_file: UploadFile = File(...)):
 
             data = {
                 "store_id": store_id,
-                "prophet_forecast": float(y_prophet),
+                "prophet_forecast": int(y_prophet),
                 "xgboost_forecast": float(y_xgboost),
                 "dateTime" : datetime.combine(date, datetime.min.time()).strftime("%Y-%m-%dT%H:%M:%S")
             }
