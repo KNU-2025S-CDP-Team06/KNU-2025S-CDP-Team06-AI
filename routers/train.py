@@ -71,7 +71,6 @@ async def train_xgboost_endpoint(train_file: List[UploadFile] = File(...)):
 
         # 이를 날씨 정보와 병합 
         df_merged = pd.merge(df_yhat, weather_df, on=["store_id", "date"], how="left")
-        df_merged.to_csv("yhat.csv", index=False)
         # 최종 xgboost Input 생성
         df_xgboost = generate_features(df_merged)
 

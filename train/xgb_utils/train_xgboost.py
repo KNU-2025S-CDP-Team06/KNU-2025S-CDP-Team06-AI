@@ -19,7 +19,6 @@ def train_xgboost(df: pd.DataFrame, save_path: str = "./models/xgb/xgb_model.pkl
 
     # 이상치 제거 전 샘플 수
     n_before_outlier_removal = len(df)
-    df.to_csv("./models/xgb/before_outlier_removal.csv", index=False)
     
     # Prophet 예측 신뢰구간 기반 이상치 제거
     if "yhat_lower" in df.columns and "yhat_upper" in df.columns:
@@ -28,7 +27,6 @@ def train_xgboost(df: pd.DataFrame, save_path: str = "./models/xgb/xgb_model.pkl
 
     # 이상치 제거 후 샘플 수
     n_after_outlier_removal = len(df)
-    df.to_csv("./models/xgb/after_outlier_removal.csv", index=False)
 
     print("n_before_outlier_removal: ", n_before_outlier_removal, "n_after_outlier_removal: ", n_after_outlier_removal)
     sys.stdout.flush()
