@@ -117,6 +117,4 @@ def compute_yhat_and_target(df: pd.DataFrame) -> pd.DataFrame:
 
     final_df = pd.concat(store_dfs, ignore_index=True)
     final_df = final_df.dropna(subset=["yhat", "y"]).reset_index(drop=True)
-    # test용
-    final_df.to_csv("yhat.csv", index=False)
     return final_df
