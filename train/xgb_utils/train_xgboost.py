@@ -96,7 +96,7 @@ def train_xgboost(df: pd.DataFrame, save_path: str = "./models/xgb/xgb_model.pkl
         return np.mean(fold_maes) if fold_maes else float("inf")
 
     study = optuna.create_study(direction="minimize")
-    study.optimize(objective, n_trials= 80)
+    study.optimize(objective, n_trials= 100)
     best_params = study.best_params
 
     # 최적 파라미터로 Fold별 성능 측정 및 모델 학습
