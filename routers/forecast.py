@@ -46,7 +46,7 @@ async def forecast_daily(forecast_file: UploadFile = File(...)):
             data = {
                 "store_id": store_id,
                 "prophet_forecast": float(y_prophet),
-                "xgboost_forecast": float(y_xgboost), # 얘는 null 일 수 있음
+                "xgboost_forecast": float(y_xgboost*0.1), # 얘는 null 일 수 있음
                 "date_time" : datetime.combine(date, datetime.min.time()).strftime("%Y-%m-%dT%H:%M:%S")
             }
             response = requests.post(url, json=data, headers=headers)
