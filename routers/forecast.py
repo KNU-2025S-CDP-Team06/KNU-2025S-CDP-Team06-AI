@@ -7,7 +7,7 @@ from forecast.predict_period import predict_period
 import requests
 from config import config
 from datetime import datetime
-
+import pandas as pd
 forecast_router = APIRouter(prefix="/forecast", tags=["Forecast"])
 
 @forecast_router.post("/")
@@ -15,10 +15,9 @@ async def forecast_daily(forecast_file: UploadFile = File(...)):
     try:
         df = read_csv_upload_file(forecast_file)
 
-        forecast_result = {} # 세부 예측 로직 추가
+        forecast_result = [] # 세부 예측 로직 추가
 
         for _, row in df.iterrows():
-            # 한 행을 dict로 변환하여 predict_daily에 전달
             input_dict = {
                 "store_id": int(row["store_id"]),
                 "date": row["date"],
@@ -32,106 +31,43 @@ async def forecast_daily(forecast_file: UploadFile = File(...)):
                 "rev_t-14": float(row["rev_t-14"]),
             }
 
-            prediction = predict_daily(input_dict)
-            forecast_result.update(prediction)
+            # 1일차 예측 (Prophet + XGBoost)
+            result_day1 = predict_daily(input_dict)
+            y_prophet, y_xgboost, date = result_day1[input_dict["store_id"]]
+            forecast_result.append({
+                "store_id": input_dict["store_id"],
+                "date": date,
+                "prophet_forecast": float(y_prophet),
+                "xgboost_forecast": float(y_xgboost)
+            })
 
+            # 2~62일차 예측 (Prophet only)
+            period_result = predict_period(input_dict, periods=62)
+            future_start_date = pd.to_datetime(input_dict["date"]) + pd.Timedelta(days=1)
+            for i, yhat in enumerate(period_result[input_dict["store_id"]]):
+                forecast_result.append({
+                    "store_id": input_dict["store_id"],
+                    "date": (future_start_date + pd.Timedelta(days=i)).strftime("%Y-%m-%d %H:%M:%S"),
+                    "prophet_forecast": float(yhat),
+                    "xgboost_forecast": None
+                })
+        
         # JWT 인증
         headers = {
             "Authorization": f"Bearer {get_jwt()}"
         }
         
-        for store_id, (y_prophet, y_xgboost, date) in forecast_result.items():
-            url = f"{config.BACKEND_URL}/forecast"
-
+        for row in forecast_result:
             data = {
-                "store_id": store_id,
-                "prophet_forecast": float(y_prophet),
-                "xgboost_forecast": float(y_xgboost*0.1), # 얘는 null 일 수 있음
-                "date_time" : datetime.combine(date, datetime.min.time()).strftime("%Y-%m-%dT%H:%M:%S")
+                "store_id": row["store_id"],
+                "prophet_forecast": row["prophet_forecast"],
+                "xgboost_forecast": row["xgboost_forecast"] * 0.1 if row["xgboost_forecast"] is not None else None,
+                "date_time": datetime.strptime(str(row["date"]), "%Y-%m-%d %H:%M:%S").strftime("%Y-%m-%dT%H:%M:%S")
             }
-            response = requests.post(url, json=data, headers=headers)
-
+            response = requests.post(f"{config.BACKEND_URL}/forecast", json=data, headers=headers)
             if response.status_code != 204:
-                raise ValueError(f"{store_id} 저장 실패: {response.status_code} - {response.text}")
+                raise ValueError(f"{row['store_id']} 저장 실패: {response.status_code} - {response.text}")
             
-        return JSONResponse(content={"message": "예측 데이터 수신 완료"}, status_code=200)
-    
-    except ValueError as ve:
-        return JSONResponse(content={"error": str(ve)}, status_code=400)
-
-@forecast_router.post("/weekly")
-async def forecast_weekly(forecast_file: UploadFile = File(...)):
-    try:
-        df = read_csv_upload_file(forecast_file)
-        forecast_result = {} # 세부 예측 로직 추가
-
-        for _, row in df.iterrows():
-            # 한 행을 dict로 변환하여 predict_weekly에 전달
-            input_dict = {
-                "store_id": int(row["store_id"]),
-                "date": row["date"],
-                "cluster_id": int(row["cluster_id"]),
-            }
-
-            prediction = predict_period(input_dict, periods = 7) # 7일 간의 매출을 예측
-            forecast_result.update(prediction)
-
-        # JWT 인증
-        headers = {
-            "Authorization": f"Bearer {get_jwt()}"
-        }
-        for store_id, weekly_forecast in forecast_result.items():
-            url = f"{config.BACKEND_URL}/forecast"
-            data = {
-                "store_id": store_id,
-                "prophet_forecast": float(weekly_forecast)
-            }
-            print(data)
-
-            response = requests.post(url, json=data, headers=headers)
-
-            if response.status_code != 204:
-                raise ValueError(f"{store_id} 저장 실패: {response.status_code} - {response.text}")
-
-        return JSONResponse(content={"message": "예측 데이터 수신 완료"}, status_code=200)
-    
-    except ValueError as ve:
-        return JSONResponse(content={"error": str(ve)}, status_code=400)
-
-@forecast_router.post("/monthly")
-async def forecast_monthly(forecast_file: UploadFile = File(...)):
-    try:
-        df = read_csv_upload_file(forecast_file)
-        forecast_result = {} # 세부 예측 로직 추가
-
-        for _, row in df.iterrows():
-            # 한 행을 dict로 변환하여 predict_daily에 전달
-            input_dict = {
-                "store_id": int(row["store_id"]),
-                "date": row["date"],
-                "cluster_id": int(row["cluster_id"]),
-            }
-
-            prediction = predict_period(input_dict, periods = 30) # 30일 간의 매출을 예측
-            forecast_result.update(prediction)
-
-
-        # JWT 인증
-        headers = {
-            "Authorization": f"Bearer {get_jwt()}"
-        }
-        for store_id, monthly_forecast in forecast_result.items():
-            url = f"{config.BACKEND_URL}/forecast"
-            data = {
-                "store_id": store_id,
-                "prophet_forecast": float(monthly_forecast)
-            }
-
-            response = requests.post(url, json=data, headers=headers)
-            
-            if response.status_code != 204:
-                raise ValueError(f"{store_id} 저장 실패: {response.status_code} - {response.text}")
-
         return JSONResponse(content={"message": "예측 데이터 수신 완료"}, status_code=200)
     
     except ValueError as ve:

@@ -17,8 +17,9 @@ def predict_period(data: dict, periods: int) -> dict:
     with open(prophet_model_path, "rb") as f:
         model: Prophet = pickle.load(f)
 
-    # n일간 예측할 날짜 생성
-    future_dates = pd.date_range(start=date, periods=periods, freq="D")
+    # date+1 - n일간 예측할 날짜 생성
+    start_date = pd.to_datetime(date) + pd.Timedelta(days=1)
+    future_dates = pd.date_range(start=start_date, periods=periods, freq="D")
     future = pd.DataFrame({"ds": future_dates})
 
     # cluster_id가 2인 경우, 학기 여부 반영
@@ -38,6 +39,6 @@ def predict_period(data: dict, periods: int) -> dict:
     future["floor"] = 0
 
     forecast = model.predict(future)
-    y_pred_sum = float(forecast["yhat"].sum())
-
-    return {store_id: y_pred_sum}
+    yhat_list = forecast["yhat"].tolist()
+    
+    return {store_id: yhat_list}
