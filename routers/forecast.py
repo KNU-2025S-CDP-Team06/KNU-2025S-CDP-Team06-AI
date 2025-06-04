@@ -74,11 +74,11 @@ async def forecast_daily(forecast_file: UploadFile = File(...)):
                 if forecast_dt.weekday() in holiday_weekdays:
                     row["prophet_forecast"] = 0.0
 
-        """     
+        
         # JWT 인증
         headers = {
             "Authorization": f"Bearer {get_jwt()}"
-        } """
+        } 
         
         for row in forecast_result:
             data = {
@@ -87,11 +87,10 @@ async def forecast_daily(forecast_file: UploadFile = File(...)):
                 "xgboost_forecast": row["xgboost_forecast"] * 0.1 if row["xgboost_forecast"] is not None else None,
                 "date_time": datetime.strptime(str(row["date"]), "%Y-%m-%d %H:%M:%S").strftime("%Y-%m-%dT%H:%M:%S")
             }
-            print(data)
-            """
+            
             response = requests.post(f"{config.BACKEND_URL}/forecast", json=data, headers=headers)
             if response.status_code != 204:
-                raise ValueError(f"{row['store_id']} 저장 실패: {response.status_code} - {response.text}")"""
+                raise ValueError(f"{row['store_id']} 저장 실패: {response.status_code} - {response.text}")
             
         return JSONResponse(content={"message": "예측 데이터 수신 완료"}, status_code=200)
     
