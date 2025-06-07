@@ -51,9 +51,12 @@ async def forecast_daily(forecast_file: UploadFile = File(...)):
                 "prophet_forecast": float(y_prophet),
                 "xgboost_forecast": float(y_xgboost)
             })
-
-            # 2~62일차 예측 (Prophet only)
+            """
+            # 2~62일차 예측 (Prophet only), 다음 달 예측 수행을 위한 로직
             period_result = predict_period(input_dict, periods=62)
+            """
+            # 2~ 14일차 예측 (Prophet only)
+            period_result = predict_period(input_dict, periods=14)
             future_start_date = pd.to_datetime(input_dict["date"]) + pd.Timedelta(days=1)
             
             for i, yhat in enumerate(period_result[input_dict["store_id"]]):
